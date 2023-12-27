@@ -400,7 +400,7 @@ socket.on('webrtc_ice_candidate', (event) => {
   console.log('Socket event callback: webrtc_ice_candidate')
 
   // ICE candidate configuration.
-  var candidate = new RTCIceCandidate({
+  const candidate = new RTCIceCandidate({
     sdpMLineIndex: event.label,
     candidate: event.candidate,
   })
@@ -408,6 +408,30 @@ socket.on('webrtc_ice_candidate', (event) => {
 })
 
 // FUNCTIONS ==================================================================
+function joinRoom(room) {
+  if (room === '') {
+    alert('Please type a room ID')
+  } else {
+    roomId = room
+    socket.emit('join', room)
+    showVideoConference()
+  }
+}
+
+function showVideoConference() {
+  roomSelectionContainer.style.display = 'none'
+  videoChatContainer.style.display = 'block'
+}
+
+async function setLocalStream(mediaConstraints) {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints)
+    localVideoComponent.srcObject = localStream
+  } catch (error) {
+    console.error('Could not get user media', error)
+  }
+}
+
 function addLocalTracks(rtcPeerConnection) {
   localStream.getTracks().forEach((track) => {
     rtcPeerConnection.addTrack(track, localStream)
@@ -415,35 +439,33 @@ function addLocalTracks(rtcPeerConnection) {
 }
 
 async function createOffer(rtcPeerConnection) {
-  let sessionDescription
   try {
-    sessionDescription = await rtcPeerConnection.createOffer()
+    const sessionDescription = await rtcPeerConnection.createOffer()
     rtcPeerConnection.setLocalDescription(sessionDescription)
+    
+    socket.emit('webrtc_offer', {
+      type: 'webrtc_offer',
+      sdp: sessionDescription,
+      roomId,
+    })
   } catch (error) {
     console.error(error)
   }
-
-  socket.emit('webrtc_offer', {
-    type: 'webrtc_offer',
-    sdp: sessionDescription,
-    roomId,
-  })
 }
 
 async function createAnswer(rtcPeerConnection) {
-  let sessionDescription
   try {
-    sessionDescription = await rtcPeerConnection.createAnswer()
+    const sessionDescription = await rtcPeerConnection.createAnswer()
     rtcPeerConnection.setLocalDescription(sessionDescription)
+    
+    socket.emit('webrtc_answer', {
+      type: 'webrtc_answer',
+      sdp: sessionDescription,
+      roomId,
+    })
   } catch (error) {
     console.error(error)
   }
-
-  socket.emit('webrtc_answer', {
-    type: 'webrtc_answer',
-    sdp: sessionDescription,
-    roomId,
-  })
 }
 
 function setRemoteStream(event) {
