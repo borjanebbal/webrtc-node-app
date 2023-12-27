@@ -110,8 +110,10 @@ In the _server.js_ file, create a classic Express server and add the middleware 
 
 ```javascript
 const express = require('express')
+const http = require('http')
+
 const app = express()
-const server = require('http').createServer(app)
+const server = http.createServer(app)
 
 app.use('/', express.static('public'))
 
@@ -126,23 +128,25 @@ Then import the SocketIO library and handle the messages that will be emitted by
 
 ```javascript
 const express = require('express')
+const http = require('http')
+const { Server } = require('socket.io')
+
 const app = express()
-const server = require('http').createServer(app)
-const io = require('socket.io')(server)
+const server = http.createServer(app)
+const io = new Server(server)
 
 app.use('/', express.static('public'))
 
 io.on('connection', (socket) => {
   socket.on('join', (roomId) => {
-    const roomClients = io.sockets.adapter.rooms[roomId] || { length: 0 }
-    const numberOfClients = roomClients.length
+    const selectedRoom = io.sockets.adapter.rooms.get(roomId)
+    const numberOfClients = selectedRoom ? selectedRoom.size : 0
 
-    // These events are emitted only to the sender socket.
-    if (numberOfClients == 0) {
+    if (numberOfClients === 0) {
       console.log(`Creating room ${roomId} and emitting room_created socket event`)
       socket.join(roomId)
       socket.emit('room_created', roomId)
-    } else if (numberOfClients == 1) {
+    } else if (numberOfClients === 1) {
       console.log(`Joining room ${roomId} and emitting room_joined socket event`)
       socket.join(roomId)
       socket.emit('room_joined', roomId)
@@ -155,19 +159,22 @@ io.on('connection', (socket) => {
   // These events are emitted to all the sockets connected to the same room except the sender.
   socket.on('start_call', (roomId) => {
     console.log(`Broadcasting start_call event to peers in room ${roomId}`)
-    socket.broadcast.to(roomId).emit('start_call')
+    socket.to(roomId).emit('start_call')
   })
+
   socket.on('webrtc_offer', (event) => {
     console.log(`Broadcasting webrtc_offer event to peers in room ${event.roomId}`)
-    socket.broadcast.to(event.roomId).emit('webrtc_offer', event.sdp)
+    socket.to(event.roomId).emit('webrtc_offer', event.sdp)
   })
+
   socket.on('webrtc_answer', (event) => {
     console.log(`Broadcasting webrtc_answer event to peers in room ${event.roomId}`)
-    socket.broadcast.to(event.roomId).emit('webrtc_answer', event.sdp)
+    socket.to(event.roomId).emit('webrtc_answer', event.sdp)
   })
+
   socket.on('webrtc_ice_candidate', (event) => {
     console.log(`Broadcasting webrtc_ice_candidate event to peers in room ${event.roomId}`)
-    socket.broadcast.to(event.roomId).emit('webrtc_ice_candidate', event)
+    socket.to(event.roomId).emit('webrtc_ice_candidate', event)
   })
 })
 
